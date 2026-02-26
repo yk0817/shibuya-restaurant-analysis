@@ -218,7 +218,7 @@
 
     <script>
         // 分析結果JSONを読み込んでページに反映
-        fetch('../output/analysis_results.json')
+        fetch('analysis_results.json')
             .then(r => r.ok ? r.json() : Promise.reject('JSON not found'))
             .then(data => {
                 const s = data.budget_stats || {};

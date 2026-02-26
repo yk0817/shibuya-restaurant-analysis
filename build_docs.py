@@ -20,6 +20,12 @@ def build():
         shutil.copy2(f, dest)
         print(f"コピー: {f.name} → docs/charts/")
 
+    # 分析結果JSONをコピー
+    json_src = OUTPUT_DIR / "analysis_results.json"
+    if json_src.exists():
+        shutil.copy2(json_src, DOCS_DIR / "analysis_results.json")
+        print("コピー: analysis_results.json → docs/")
+
     # マップHTMLをコピー
     map_src = OUTPUT_DIR / "restaurant_map.html"
     if map_src.exists():
