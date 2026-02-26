@@ -135,13 +135,34 @@ def compute_ranking(df):
         + df["genre_popularity"] * 0.3
     )
 
+    # 全体Top20
     top20 = df.nlargest(20, "score")[
-        ["name", "genre", "budget_name", "capacity_num", "score", "access"]
+        ["name", "genre", "budget_name", "capacity_num", "score", "access", "budget_mid"]
     ].copy()
     top20["score"] = top20["score"].round(3)
     top20["rank"] = range(1, len(top20) + 1)
 
-    return top20
+    # 価格帯別Top10ランキング
+    segments = {
+        "〜2,000円": (0, 2000),
+        "2,001〜4,000円": (2001, 4000),
+        "4,001〜7,000円": (4001, 7000),
+        "7,001円〜": (7001, 999999),
+    }
+    ranking_by_price = {}
+    for label, (lo, hi) in segments.items():
+        seg_df = df[(df["budget_mid"] >= lo) & (df["budget_mid"] <= hi)]
+        if len(seg_df) == 0:
+            ranking_by_price[label] = []
+            continue
+        top = seg_df.nlargest(min(20, len(seg_df)), "score")[
+            ["name", "genre", "budget_name", "capacity_num", "score", "access", "budget_mid"]
+        ].copy()
+        top["score"] = top["score"].round(3)
+        top["rank"] = range(1, len(top) + 1)
+        ranking_by_price[label] = top
+
+    return top20, ranking_by_price
 
 
 def display_results(stats, genre_stats, top20):
@@ -179,15 +200,19 @@ def display_results(stats, genre_stats, top20):
     )
 
 
-def save_results(stats, genre_stats, top20):
+def save_results(stats, genre_stats, top20, ranking_by_price):
     """分析結果をJSONファイルに保存する。"""
+    cols = ["rank", "name", "genre", "budget_name", "capacity_num", "score", "access"]
     results = {
         "budget_stats": {k: v for k, v in stats.items() if k != "budget_distribution"},
         "budget_distribution": stats.get("budget_distribution", []),
         "genre_stats": genre_stats,
-        "ranking": top20[["rank", "name", "genre", "budget_name", "capacity_num", "score", "access"]].to_dict(
-            orient="records"
-        ),
+        "ranking": top20[cols].to_dict(orient="records"),
+        "ranking_by_price": {
+            label: df_seg[cols].to_dict(orient="records")
+            for label, df_seg in ranking_by_price.items()
+            if len(df_seg) > 0
+        },
     }
     json_path = OUTPUT_DIR / "analysis_results.json"
     with open(json_path, "w", encoding="utf-8") as f:
@@ -200,6 +225,6 @@ if __name__ == "__main__":
     df = load_data()
     df, budget_stats = analyze_budget(df)
     genre_stats = analyze_genre(df)
-    top20 = compute_ranking(df)
+    top20, ranking_by_price = compute_ranking(df)
     display_results(budget_stats, genre_stats, top20)
-    save_results(budget_stats, genre_stats, top20)
+    save_results(budget_stats, genre_stats, top20, ranking_by_price)

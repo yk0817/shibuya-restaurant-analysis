@@ -112,6 +112,28 @@
             transition: background 0.2s;
         }
         .map-link:hover { background: #c0392b; }
+        .filter-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .filter-btn {
+            padding: 8px 18px;
+            border: 2px solid #ddd;
+            border-radius: 20px;
+            background: white;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .filter-btn:hover { border-color: #e74c3c; color: #e74c3c; }
+        .filter-btn.active {
+            background: #e74c3c;
+            color: white;
+            border-color: #e74c3c;
+        }
         .note {
             font-size: 0.85rem;
             color: #888;
@@ -182,7 +204,14 @@
 
         <!-- ランキング -->
         <div class="section">
-            <h2>人気店ランキング Top20</h2>
+            <h2>人気店ランキング</h2>
+            <div class="filter-bar" id="filter-bar">
+                <button class="filter-btn active" data-filter="all">全価格帯 Top20</button>
+                <button class="filter-btn" data-filter="〜2,000円">〜2,000円</button>
+                <button class="filter-btn" data-filter="2,001〜4,000円">2,001〜4,000円</button>
+                <button class="filter-btn" data-filter="4,001〜7,000円">4,001〜7,000円</button>
+                <button class="filter-btn" data-filter="7,001円〜">7,001円〜</button>
+            </div>
             <div style="overflow-x: auto;">
                 <table id="ranking-table">
                     <thead>
@@ -217,10 +246,43 @@
     </footer>
 
     <script>
+        let analysisData = null;
+
+        function renderRanking(items) {
+            const tbody = document.getElementById('ranking-body');
+            if (!items || items.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;">該当データなし</td></tr>';
+                return;
+            }
+            tbody.innerHTML = items.map(r =>
+                `<tr>
+                    <td class="rank">${r.rank}</td>
+                    <td>${r.name}</td>
+                    <td>${r.genre}</td>
+                    <td>${r.budget_name || '-'}</td>
+                    <td>${r.score}</td>
+                </tr>`
+            ).join('');
+        }
+
+        function setFilter(filter) {
+            if (!analysisData) return;
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            document.querySelector(`.filter-btn[data-filter="${filter}"]`).classList.add('active');
+
+            if (filter === 'all') {
+                renderRanking(analysisData.ranking || []);
+            } else {
+                const byPrice = analysisData.ranking_by_price || {};
+                renderRanking(byPrice[filter] || []);
+            }
+        }
+
         // 分析結果JSONを読み込んでページに反映
         fetch('analysis_results.json')
             .then(r => r.ok ? r.json() : Promise.reject('JSON not found'))
             .then(data => {
+                analysisData = data;
                 const s = data.budget_stats || {};
                 document.getElementById('total-shops').textContent = (s.total_shops || '---') + '店';
                 document.getElementById('min-price').textContent = s.min_price ? s.min_price.toLocaleString() + '円' : '---';
@@ -228,20 +290,12 @@
                 document.getElementById('avg-price').textContent = s.mean_mid ? s.mean_mid.toLocaleString() + '円' : '---';
                 document.getElementById('median-price').textContent = s.median_mid ? s.median_mid.toLocaleString() + '円' : '---';
 
-                // ランキング
-                const ranking = data.ranking || [];
-                if (ranking.length > 0) {
-                    const tbody = document.getElementById('ranking-body');
-                    tbody.innerHTML = ranking.map(r =>
-                        `<tr>
-                            <td class="rank">${r.rank}</td>
-                            <td>${r.name}</td>
-                            <td>${r.genre}</td>
-                            <td>${r.budget_name || '-'}</td>
-                            <td>${r.score}</td>
-                        </tr>`
-                    ).join('');
-                }
+                renderRanking(data.ranking || []);
+
+                // フィルタボタンのイベント設定
+                document.querySelectorAll('.filter-btn').forEach(btn => {
+                    btn.addEventListener('click', () => setFilter(btn.dataset.filter));
+                });
             })
             .catch(() => {
                 console.log('分析結果JSONが見つかりません。analyze.py を実行してください。');
