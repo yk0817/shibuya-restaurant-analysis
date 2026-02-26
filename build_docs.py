@@ -1,16 +1,18 @@
 """GitHub Pages用 docs/ ディレクトリをビルドする。
 
 output/ のチャートPNGを docs/charts/ にコピーし、
-マップHTMLを docs/map.html にコピーする。
+マップHTMLを docs/map.html にコピーし、
+分析結果JSONを index.html に埋め込む。
 """
 
+import json
 import shutil
 
 from config import OUTPUT_DIR, DOCS_DIR, CHARTS_DIR
 
 
 def build():
-    """output/ の成果物を docs/ にコピーする。"""
+    """output/ の成果物を docs/ にコピー・埋め込みする。"""
     CHARTS_DIR.mkdir(exist_ok=True)
 
     # チャートPNGをコピー
@@ -20,18 +22,26 @@ def build():
         shutil.copy2(f, dest)
         print(f"コピー: {f.name} → docs/charts/")
 
-    # 分析結果JSONをコピー
+    # 分析結果JSONを index.html に埋め込み (テンプレートから生成)
     json_src = OUTPUT_DIR / "analysis_results.json"
-    if json_src.exists():
-        shutil.copy2(json_src, DOCS_DIR / "analysis_results.json")
-        print("コピー: analysis_results.json → docs/")
+    template_path = DOCS_DIR / "index_template.html"
+    index_path = DOCS_DIR / "index.html"
+    if json_src.exists() and template_path.exists():
+        with open(json_src, "r", encoding="utf-8") as f:
+            json_data = f.read()
+        with open(template_path, "r", encoding="utf-8") as f:
+            html = f.read()
+        html = html.replace("__ANALYSIS_DATA__", json_data)
+        with open(index_path, "w", encoding="utf-8") as f:
+            f.write(html)
+        print("埋め込み: analysis_results.json → docs/index.html")
 
     # マップHTMLをコピー
     map_src = OUTPUT_DIR / "restaurant_map.html"
     if map_src.exists():
         dest = DOCS_DIR / "map.html"
         shutil.copy2(map_src, dest)
-        print(f"コピー: restaurant_map.html → docs/map.html")
+        print("コピー: restaurant_map.html → docs/map.html")
 
     print("\ndocs/ ディレクトリのビルドが完了しました。")
     print("GitHub Pages: Settings → Pages → Source: /docs (master branch)")

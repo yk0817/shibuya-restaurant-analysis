@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>渋谷道玄坂 レストラン分析</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+        header {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+        }
+        header h1 { font-size: 2rem; margin-bottom: 8px; }
+        header p { font-size: 1rem; opacity: 0.8; }
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 30px 20px;
+        }
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 16px;
+            margin-bottom: 40px;
+        }
+        .summary-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .summary-card .value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #e74c3c;
+        }
+        .summary-card .label {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 4px;
+        }
+        .section {
+            background: white;
+            border-radius: 10px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .section h2 {
+            font-size: 1.3rem;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e74c3c;
+        }
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+        .chart-card {
+            background: white;
+            border-radius: 10px;
+            padding: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .chart-card img {
+            width: 100%;
+            height: auto;
+            border-radius: 6px;
+        }
+        .chart-card h3 {
+            font-size: 1rem;
+            margin-bottom: 10px;
+            color: #555;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        th {
+            background: #f8f9fa;
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 2px solid #dee2e6;
+            white-space: nowrap;
+        }
+        td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #eee;
+        }
+        tr:hover { background: #f8f9fa; }
+        .rank { font-weight: bold; color: #e74c3c; }
+        .map-link {
+            display: inline-block;
+            background: #e74c3c;
+            color: white;
+            padding: 12px 28px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        .map-link:hover { background: #c0392b; }
+        .filter-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .filter-btn {
+            padding: 8px 18px;
+            border: 2px solid #ddd;
+            border-radius: 20px;
+            background: white;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .filter-btn:hover { border-color: #e74c3c; color: #e74c3c; }
+        .filter-btn.active {
+            background: #e74c3c;
+            color: white;
+            border-color: #e74c3c;
+        }
+        .note {
+            font-size: 0.85rem;
+            color: #888;
+            margin-top: 16px;
+        }
+        footer {
+            text-align: center;
+            padding: 30px;
+            color: #999;
+            font-size: 0.85rem;
+        }
+        @media (max-width: 600px) {
+            .chart-grid { grid-template-columns: 1fr; }
+            header h1 { font-size: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>渋谷道玄坂 レストラン分析</h1>
+        <p>道玄坂再開発エリアの飲食店データ分析ダッシュボード</p>
+    </header>
+
+    <div class="container">
+        <!-- サマリーカード (collect/analyze実行後に値を更新) -->
+        <div class="summary" id="summary">
+            <div class="summary-card">
+                <div class="value" id="total-shops">---</div>
+                <div class="label">総店舗数</div>
+            </div>
+            <div class="summary-card">
+                <div class="value" id="min-price">---</div>
+                <div class="label">最低価格帯</div>
+            </div>
+            <div class="summary-card">
+                <div class="value" id="max-price">---</div>
+                <div class="label">最高価格帯</div>
+            </div>
+            <div class="summary-card">
+                <div class="value" id="avg-price">---</div>
+                <div class="label">平均予算</div>
+            </div>
+            <div class="summary-card">
+                <div class="value" id="median-price">---</div>
+                <div class="label">中央値予算</div>
+            </div>
+        </div>
+
+        <!-- チャート -->
+        <div class="chart-grid">
+            <div class="chart-card">
+                <h3>予算帯別レストラン分布</h3>
+                <img src="charts/budget_distribution.png" alt="予算帯分布">
+            </div>
+            <div class="chart-card">
+                <h3>ジャンル別店舗数 Top15</h3>
+                <img src="charts/genre_distribution.png" alt="ジャンル分布">
+            </div>
+            <div class="chart-card">
+                <h3>平均予算分布 (1000円刻み)</h3>
+                <img src="charts/budget_histogram.png" alt="予算ヒストグラム">
+            </div>
+            <div class="chart-card">
+                <h3>ジャンル別予算分布 Top10</h3>
+                <img src="charts/genre_budget_box.png" alt="ジャンル×予算ボックスプロット">
+            </div>
+        </div>
+
+        <!-- ランキング -->
+        <div class="section">
+            <h2>人気店ランキング</h2>
+            <div class="filter-bar" id="filter-bar">
+                <button class="filter-btn active" data-filter="all">全価格帯 Top20</button>
+                <button class="filter-btn" data-filter="〜2,000円">〜2,000円</button>
+                <button class="filter-btn" data-filter="2,001〜4,000円">2,001〜4,000円</button>
+                <button class="filter-btn" data-filter="4,001〜7,000円">4,001〜7,000円</button>
+                <button class="filter-btn" data-filter="7,001円〜">7,001円〜</button>
+            </div>
+            <div style="overflow-x: auto;">
+                <table id="ranking-table">
+                    <thead>
+                        <tr>
+                            <th>順位</th>
+                            <th>店名</th>
+                            <th>ジャンル</th>
+                            <th>予算</th>
+                            <th>スコア</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ranking-body">
+                        <tr><td colspan="5" style="text-align:center; color:#999;">
+                            analyze.py 実行後にデータが表示されます
+                        </td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="note">スコア = APIおすすめ順位(0.4) + 席数(0.3) + ジャンル人気度(0.3)</p>
+        </div>
+
+        <!-- マップリンク -->
+        <div class="section" style="text-align: center;">
+            <h2>インタラクティブマップ</h2>
+            <p style="margin-bottom: 16px;">道玄坂周辺のレストランを地図上で確認できます。予算帯別に色分けされたマーカーをクリックすると詳細情報が表示されます。</p>
+            <a href="map.html" class="map-link">マップを開く</a>
+        </div>
+    </div>
+
+    <footer>
+        データ出典: ホットペッパーグルメAPI &copy; Recruit Co., Ltd.
+    </footer>
+
+    <script id="analysis-data" type="application/json">__ANALYSIS_DATA__</script>
+    <script>
+        const analysisData = JSON.parse(document.getElementById('analysis-data').textContent);
+
+        function renderRanking(items) {
+            const tbody = document.getElementById('ranking-body');
+            if (!items || items.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;">該当データなし</td></tr>';
+                return;
+            }
+            tbody.innerHTML = items.map(r =>
+                `<tr>
+                    <td class="rank">${r.rank}</td>
+                    <td>${r.name}</td>
+                    <td>${r.genre}</td>
+                    <td>${r.budget_name || '-'}</td>
+                    <td>${r.score}</td>
+                </tr>`
+            ).join('');
+        }
+
+        function setFilter(filter, btn) {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            if (btn) btn.classList.add('active');
+
+            if (filter === 'all') {
+                renderRanking(analysisData.ranking || []);
+            } else {
+                const byPrice = analysisData.ranking_by_price || {};
+                renderRanking(byPrice[filter] || []);
+            }
+        }
+
+        // ページ読み込み時にデータを反映
+        (function() {
+            const s = analysisData.budget_stats || {};
+            document.getElementById('total-shops').textContent = (s.total_shops || '---') + '店';
+            document.getElementById('min-price').textContent = s.min_price ? s.min_price.toLocaleString() + '円' : '---';
+            document.getElementById('max-price').textContent = s.max_price ? s.max_price.toLocaleString() + '円' : '---';
+            document.getElementById('avg-price').textContent = s.mean_mid ? s.mean_mid.toLocaleString() + '円' : '---';
+            document.getElementById('median-price').textContent = s.median_mid ? s.median_mid.toLocaleString() + '円' : '---';
+
+            renderRanking(analysisData.ranking || []);
+
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', () => setFilter(btn.dataset.filter, btn));
+            });
+        })();
+    </script>
+</body>
+</html>
